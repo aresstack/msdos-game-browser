@@ -3,11 +3,12 @@ package de.bund.zrb.msdosgames.infrastructure.archive;
 final class ArchiveFileFilter {
 
     boolean accepts(ArchiveMetadataResponse.ArchiveFile file) {
-        if (file == null || file.name == null || file.name.trim().length() == 0) {
+        String name = file == null ? "" : ArchiveJsonValues.text(file.name);
+        if (name.length() == 0) {
             return false;
         }
 
-        String lowerName = file.name.toLowerCase();
+        String lowerName = name.toLowerCase();
         if (lowerName.endsWith("_meta.xml")
                 || lowerName.endsWith("_files.xml")
                 || lowerName.endsWith("_reviews.xml")
@@ -17,7 +18,7 @@ final class ArchiveFileFilter {
             return false;
         }
 
-        String lowerFormat = file.format == null ? "" : file.format.toLowerCase();
+        String lowerFormat = ArchiveJsonValues.text(file.format).toLowerCase();
         if (lowerFormat.contains("metadata") || lowerFormat.contains("item tile")) {
             return false;
         }

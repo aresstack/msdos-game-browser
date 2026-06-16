@@ -1,29 +1,31 @@
 package de.bund.zrb.msdosgames.infrastructure.archive;
 
+import com.google.gson.JsonElement;
+
 import java.util.List;
 
 final class ArchiveMetadataResponse {
 
     ArchiveMetadata metadata;
     List<ArchiveFile> files;
-    Long item_size;
+    JsonElement item_size;
 
     static final class ArchiveMetadata {
-        String identifier;
-        String title;
-        String description;
-        String creator;
-        String date;
-        String licenseurl;
-        String rights;
+        JsonElement identifier;
+        JsonElement title;
+        JsonElement description;
+        JsonElement creator;
+        JsonElement date;
+        JsonElement licenseurl;
+        JsonElement rights;
     }
 
     static final class ArchiveFile {
-        String name;
-        String format;
-        String size;
-        String md5;
-        String sha1;
-        String source;
+        JsonElement name;
+        JsonElement format;
+        JsonElement size;
+        JsonElement md5;
+        JsonElement sha1;
+        JsonElement source;
     }
 }

@@ -1,5 +1,7 @@
 package de.bund.zrb.msdosgames.infrastructure.archive;
 
+import com.google.gson.JsonElement;
+
 import java.util.List;
 
 final class ArchiveSearchResponse {
@@ -8,13 +10,13 @@ final class ArchiveSearchResponse {
     String cursor;
 
     static final class ArchiveSearchItem {
-        String identifier;
-        String title;
-        String description;
-        String creator;
-        String date;
-        String publicdate;
-        Long downloads;
-        Long item_size;
+        JsonElement identifier;
+        JsonElement title;
+        JsonElement description;
+        JsonElement creator;
+        JsonElement date;
+        JsonElement publicdate;
+        JsonElement downloads;
+        JsonElement item_size;
     }
 }

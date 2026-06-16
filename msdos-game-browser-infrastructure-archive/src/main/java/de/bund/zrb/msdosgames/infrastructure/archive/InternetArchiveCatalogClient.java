@@ -64,11 +64,11 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
         ArchiveMetadataResponse response = gson.fromJson(responseBody, ArchiveMetadataResponse.class);
         ArchiveMetadataResponse.ArchiveMetadata metadata = response == null ? null : response.metadata;
 
-        String title = metadata == null ? identifier.getValue() : metadata.title;
-        String descriptionHtml = metadata == null ? "" : htmlSanitizer.sanitize(metadata.description);
+        String title = metadata == null ? identifier.getValue() : ArchiveJsonValues.text(metadata.title);
+        String descriptionHtml = metadata == null ? "" : htmlSanitizer.sanitize(ArchiveJsonValues.text(metadata.description));
         LicenseNotice licenseNotice = createLicenseNotice(identifier, metadata);
         List<GameFile> files = mapFiles(response == null ? Collections.<ArchiveMetadataResponse.ArchiveFile>emptyList() : response.files);
-        long itemSize = response == null || response.item_size == null ? 0L : response.item_size.longValue();
+        long itemSize = response == null ? 0L : ArchiveJsonValues.number(response.item_size);
 
         return new GameDetails(identifier, title, descriptionHtml, licenseNotice, files, itemSize);
     }
@@ -82,7 +82,7 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
 
         List<GameSummary> games = new ArrayList<GameSummary>();
         for (ArchiveSearchResponse.ArchiveSearchItem item : response.items) {
-            if (item.identifier != null && item.identifier.trim().length() > 0) {
+            if (ArchiveJsonValues.text(item.identifier).length() > 0) {
                 games.add(mapSummary(item));
             }
         }
@@ -91,19 +91,19 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
 
     private GameSummary mapSummary(ArchiveSearchResponse.ArchiveSearchItem item) {
         return new GameSummary(
-                GameIdentifier.of(item.identifier),
-                item.title,
-                htmlSanitizer.toPlainText(item.description),
-                item.creator,
-                item.date,
-                item.publicdate,
-                item.downloads == null ? 0L : item.downloads.longValue(),
-                item.item_size == null ? 0L : item.item_size.longValue());
+                GameIdentifier.of(ArchiveJsonValues.text(item.identifier)),
+                ArchiveJsonValues.text(item.title),
+                htmlSanitizer.toPlainText(ArchiveJsonValues.text(item.description)),
+                ArchiveJsonValues.text(item.creator),
+                ArchiveJsonValues.text(item.date),
+                ArchiveJsonValues.text(item.publicdate),
+                ArchiveJsonValues.number(item.downloads),
+                ArchiveJsonValues.number(item.item_size));
     }
 
     private LicenseNotice createLicenseNotice(GameIdentifier identifier, ArchiveMetadataResponse.ArchiveMetadata metadata) {
-        String licenseUrl = metadata == null ? "" : metadata.licenseurl;
-        String rights = metadata == null ? "" : metadata.rights;
+        String licenseUrl = metadata == null ? "" : ArchiveJsonValues.text(metadata.licenseurl);
+        String rights = metadata == null ? "" : ArchiveJsonValues.text(metadata.rights);
         return new LicenseNotice(licenseUrl, rights, urlBuilder.buildItemUrl(identifier));
     }
 
@@ -116,24 +116,14 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
         for (ArchiveMetadataResponse.ArchiveFile archiveFile : archiveFiles) {
             if (fileFilter.accepts(archiveFile)) {
                 gameFiles.add(new GameFile(
-                        archiveFile.name,
-                        archiveFile.format,
-                        parseSize(archiveFile.size),
-                        archiveFile.md5,
-                        archiveFile.sha1));
+                        ArchiveJsonValues.text(archiveFile.name),
+                        ArchiveJsonValues.text(archiveFile.format),
+                        ArchiveJsonValues.number(archiveFile.size),
+                        ArchiveJsonValues.text(archiveFile.md5),
+                        ArchiveJsonValues.text(archiveFile.sha1)));
             }
         }
         return gameFiles;
     }
 
-    private long parseSize(String value) {
-        if (value == null || value.trim().length() == 0) {
-            return 0L;
-        }
-        try {
-            return Long.parseLong(value.trim());
-        } catch (NumberFormatException exception) {
-            return 0L;
-        }
-    }
 }
