@@ -5,6 +5,7 @@ import de.bund.zrb.msdosgames.application.usecase.BrowseGamesUseCase;
 import de.bund.zrb.msdosgames.application.usecase.DownloadGameUseCase;
 import de.bund.zrb.msdosgames.application.usecase.LoadGameDetailsUseCase;
 import de.bund.zrb.msdosgames.application.usecase.SearchGamesUseCase;
+import de.bund.zrb.msdosgames.backend.LuceneH2GameBrowserBackendService;
 import de.bund.zrb.msdosgames.frontend.swing.GameBrowserFrame;
 import de.bund.zrb.msdosgames.infrastructure.archive.InternetArchiveCatalogClient;
 import de.bund.zrb.msdosgames.infrastructure.archive.InternetArchiveDownloadClient;
@@ -33,11 +34,10 @@ public final class MsdosGameBrowserApplication {
         InternetArchiveCatalogClient archiveCatalogClient = new InternetArchiveCatalogClient(httpGateway);
         InternetArchiveDownloadClient downloadClient = new InternetArchiveDownloadClient();
         FileBasedLicenseAcceptanceStore licenseAcceptanceStore = new FileBasedLicenseAcceptanceStore(ApplicationDirectories.defaultLicenseStoreFile());
+        LuceneH2GameBrowserBackendService backendService = new LuceneH2GameBrowserBackendService(archiveCatalogClient, archiveCatalogClient);
 
         return new GameBrowserFrame(
-                new BrowseGamesUseCase(archiveCatalogClient),
-                new SearchGamesUseCase(archiveCatalogClient),
-                new LoadGameDetailsUseCase(archiveCatalogClient),
+                backendService,
                 new AcceptLicenseUseCase(licenseAcceptanceStore),
                 new DownloadGameUseCase(licenseAcceptanceStore, downloadClient),
                 ApplicationDirectories.defaultDownloadDirectory());

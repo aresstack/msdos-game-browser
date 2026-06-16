@@ -1,0 +1,9 @@
+dependencies {
+    implementation project(':msdos-game-browser-domain')
+    implementation project(':msdos-game-browser-application')
+
+    implementation 'org.apache.lucene:lucene-core:8.11.4'
+    implementation 'org.apache.lucene:lucene-analyzers-common:8.11.4'
+    implementation 'com.h2database:h2:1.4.200'
+    implementation 'com.google.code.gson:gson:2.10.1'
+}

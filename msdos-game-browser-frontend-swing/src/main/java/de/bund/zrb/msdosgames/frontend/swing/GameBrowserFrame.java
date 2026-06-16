@@ -1,14 +1,14 @@
 package de.bund.zrb.msdosgames.frontend.swing;
 
 import de.bund.zrb.msdosgames.application.usecase.AcceptLicenseUseCase;
-import de.bund.zrb.msdosgames.application.usecase.BrowseGamesUseCase;
+import de.bund.zrb.msdosgames.application.port.GameBrowserBackendService;
 import de.bund.zrb.msdosgames.application.usecase.DownloadGameUseCase;
-import de.bund.zrb.msdosgames.application.usecase.LoadGameDetailsUseCase;
-import de.bund.zrb.msdosgames.application.usecase.SearchGamesUseCase;
 import de.bund.zrb.msdosgames.domain.DownloadProgress;
 import de.bund.zrb.msdosgames.domain.GameDetails;
 import de.bund.zrb.msdosgames.domain.GameFile;
+import de.bund.zrb.msdosgames.domain.GameImage;
 import de.bund.zrb.msdosgames.domain.GamePage;
+import de.bund.zrb.msdosgames.domain.GameSearchCriteria;
 import de.bund.zrb.msdosgames.domain.GameSummary;
 
 import javax.swing.BorderFactory;
@@ -39,10 +39,7 @@ public final class GameBrowserFrame extends JFrame {
 
     private static final int PAGE_SIZE = 100;
 
-    private final BrowseGamesUseCase browseGamesUseCase;
-    private final SearchGamesUseCase searchGamesUseCase;
-    private final LoadGameDetailsUseCase loadGameDetailsUseCase;
-    private final GameDetailsPreloader gameDetailsPreloader;
+    private final GameBrowserBackendService backendService;
     private final AcceptLicenseUseCase acceptLicenseUseCase;
     private final DownloadGameUseCase downloadGameUseCase;
     private final File downloadDirectory;
@@ -55,7 +52,7 @@ public final class GameBrowserFrame extends JFrame {
     private final JButton openDownloadFolderButton = new JButton("Download-Ordner öffnen");
     private final GameTableModel gameTableModel = new GameTableModel();
     private final JTable gameTable = new JTable(gameTableModel);
-    private final GameDetailsView gameDetailsView = new GameDetailsView();
+    private final GameDetailsView gameDetailsView;
     private final JProgressBar progressBar = new JProgressBar(0, 100);
     private final JLabel statusLabel = new JLabel("Bereit");
 
@@ -64,18 +61,19 @@ public final class GameBrowserFrame extends JFrame {
     private GameDetails currentDetails;
 
     public GameBrowserFrame(
-            BrowseGamesUseCase browseGamesUseCase,
-            SearchGamesUseCase searchGamesUseCase,
-            LoadGameDetailsUseCase loadGameDetailsUseCase,
+            GameBrowserBackendService backendService,
             AcceptLicenseUseCase acceptLicenseUseCase,
             DownloadGameUseCase downloadGameUseCase,
             File downloadDirectory) {
         super("MS-DOS Game Browser");
-        this.browseGamesUseCase = browseGamesUseCase;
-        this.searchGamesUseCase = searchGamesUseCase;
-        this.loadGameDetailsUseCase = loadGameDetailsUseCase;
-        this.gameDetailsPreloader = new GameDetailsPreloader(loadGameDetailsUseCase);
+        this.backendService = backendService;
         this.acceptLicenseUseCase = acceptLicenseUseCase;
+        this.gameDetailsView = new GameDetailsView(new GameImagePreviewPanel.PreviewImageLoader() {
+            @Override
+            public byte[] loadImage(GameImage image) throws Exception {
+                return backendService.loadPreviewImageNow(image);
+            }
+        });
         this.downloadGameUseCase = downloadGameUseCase;
         this.downloadDirectory = downloadDirectory;
         configureFrame();
@@ -97,7 +95,7 @@ public final class GameBrowserFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent event) {
-                gameDetailsPreloader.shutdown();
+                backendService.shutdown();
             }
         });
         setSize(1250, 800);
@@ -162,7 +160,7 @@ public final class GameBrowserFrame extends JFrame {
         loadPage(false, new PageLoader() {
             @Override
             public GamePage load() throws Exception {
-                return browseGamesUseCase.browseFirstPage(PAGE_SIZE);
+                return backendService.browse(GameSearchCriteria.browseFirstPage(PAGE_SIZE));
             }
         });
     }
@@ -178,7 +176,7 @@ public final class GameBrowserFrame extends JFrame {
         loadPage(false, new PageLoader() {
             @Override
             public GamePage load() throws Exception {
-                return searchGamesUseCase.search(activeSearchQuery, PAGE_SIZE);
+                return backendService.search(GameSearchCriteria.searchFirstPage(activeSearchQuery, PAGE_SIZE));
             }
         });
     }
@@ -192,9 +190,9 @@ public final class GameBrowserFrame extends JFrame {
             @Override
             public GamePage load() throws Exception {
                 if (activeSearchQuery == null) {
-                    return browseGamesUseCase.browseNextPage(nextCursor, PAGE_SIZE);
+                    return backendService.browse(GameSearchCriteria.browseNextPage(nextCursor, PAGE_SIZE));
                 }
-                return searchGamesUseCase.searchNextPage(activeSearchQuery, nextCursor, PAGE_SIZE);
+                return backendService.search(GameSearchCriteria.searchNextPage(activeSearchQuery, nextCursor, PAGE_SIZE));
             }
         });
     }
@@ -255,7 +253,7 @@ public final class GameBrowserFrame extends JFrame {
         int lastViewRow = Math.min(gameTable.getRowCount() - 1, firstViewRow + visibleRows);
         int firstModelRow = gameTable.convertRowIndexToModel(firstViewRow);
         int lastModelRow = gameTable.convertRowIndexToModel(lastViewRow);
-        gameDetailsPreloader.preload(gameTableModel.getGames(), Math.min(firstModelRow, lastModelRow), Math.max(firstModelRow, lastModelRow));
+        backendService.preloadDetails(gameTableModel.getGames(), Math.min(firstModelRow, lastModelRow), Math.max(firstModelRow, lastModelRow));
     }
 
     private void loadSelectedGameDetails() {
@@ -270,7 +268,7 @@ public final class GameBrowserFrame extends JFrame {
         new SwingWorker<GameDetails, Void>() {
             @Override
             protected GameDetails doInBackground() throws Exception {
-                return gameDetailsPreloader.load(summary.getIdentifier());
+                return backendService.loadDetailsNow(summary.getIdentifier());
             }
 
             @Override

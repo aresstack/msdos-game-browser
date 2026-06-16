@@ -7,6 +7,7 @@ dependencies {
     implementation project(':msdos-game-browser-application')
     implementation project(':msdos-game-browser-infrastructure-archive')
     implementation project(':msdos-game-browser-infrastructure-local')
+    implementation project(':msdos-game-browser-backend')
     implementation project(':msdos-game-browser-frontend-swing')
 }
 

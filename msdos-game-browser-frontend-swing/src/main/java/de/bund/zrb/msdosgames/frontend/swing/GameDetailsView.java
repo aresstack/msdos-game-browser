@@ -13,13 +13,14 @@ import java.io.File;
 final class GameDetailsView extends JPanel {
 
     private final GameMetadataPanel metadataPanel = new GameMetadataPanel();
-    private final GameImagePreviewPanel imagePreviewPanel = new GameImagePreviewPanel();
+    private final GameImagePreviewPanel imagePreviewPanel;
     private final GameDescriptionPanel descriptionPanel = new GameDescriptionPanel();
     private final LicenseNoticePanel licenseNoticePanel = new LicenseNoticePanel();
     private final DownloadControlsPanel downloadControlsPanel = new DownloadControlsPanel();
 
-    GameDetailsView() {
+    GameDetailsView(GameImagePreviewPanel.PreviewImageLoader imageLoader) {
         super(new BorderLayout(6, 6));
+        this.imagePreviewPanel = new GameImagePreviewPanel(imageLoader);
 
         JPanel topPanel = new JPanel(new GridLayout(1, 2, 6, 6));
         topPanel.add(metadataPanel);

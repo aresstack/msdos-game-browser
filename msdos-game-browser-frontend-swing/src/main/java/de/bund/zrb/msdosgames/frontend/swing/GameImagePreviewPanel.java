@@ -13,19 +13,28 @@ import javax.swing.SwingWorker;
 import java.awt.BorderLayout;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.net.URL;
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 final class GameImagePreviewPanel extends JPanel {
+
+    interface PreviewImageLoader {
+        byte[] loadImage(GameImage image) throws Exception;
+    }
 
     private static final int PREVIEW_WIDTH = 260;
     private static final int PREVIEW_HEIGHT = 180;
 
     private final JLabel imageLabel = new JLabel("Keine Vorschau verfügbar", SwingConstants.CENTER);
     private final JLabel imageTitleLabel = new JLabel(" ");
+    private final PreviewImageLoader imageLoader;
 
-    GameImagePreviewPanel() {
+    GameImagePreviewPanel(PreviewImageLoader imageLoader) {
         super(new BorderLayout(4, 4));
+        if (imageLoader == null) {
+            throw new IllegalArgumentException("imageLoader must not be null");
+        }
+        this.imageLoader = imageLoader;
         setBorder(BorderFactory.createTitledBorder("Vorschau"));
         imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         imageLabel.setVerticalAlignment(SwingConstants.CENTER);
@@ -57,7 +66,7 @@ final class GameImagePreviewPanel extends JPanel {
         new SwingWorker<ImageIcon, Void>() {
             @Override
             protected ImageIcon doInBackground() throws Exception {
-                BufferedImage image = ImageIO.read(new URL(gameImage.getUrl()));
+                BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageLoader.loadImage(gameImage)));
                 if (image == null) {
                     return null;
                 }
