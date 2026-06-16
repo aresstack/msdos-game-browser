@@ -5,6 +5,7 @@ import de.bund.zrb.msdosgames.domain.GameDetails;
 import de.bund.zrb.msdosgames.domain.GameIdentifier;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -16,18 +17,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-final class H2InMemoryGameDetailsStore {
+final class H2GameDetailsStore {
 
     private final Connection connection;
     private final Gson gson = new Gson();
     private final GameDetailsRecordMapper mapper = new GameDetailsRecordMapper();
 
-    H2InMemoryGameDetailsStore() {
+    H2GameDetailsStore(File databaseDirectory) {
         try {
-            connection = DriverManager.getConnection("jdbc:h2:mem:msdos_game_browser;DB_CLOSE_DELAY=-1");
+            File directory = ensureDirectory(databaseDirectory);
+            connection = DriverManager.getConnection(createJdbcUrl(directory));
             createSchema();
         } catch (SQLException exception) {
-            throw new IllegalStateException("Cannot create in-memory cache", exception);
+            throw new IllegalStateException("Cannot create H2 cache", exception);
         }
     }
 
@@ -116,6 +118,25 @@ final class H2InMemoryGameDetailsStore {
         } finally {
             statement.close();
         }
+    }
+
+    private File ensureDirectory(File directory) {
+        if (directory == null) {
+            throw new IllegalArgumentException("databaseDirectory must not be null");
+        }
+        if (directory.isDirectory()) {
+            return directory;
+        }
+        if (!directory.mkdirs() && !directory.isDirectory()) {
+            throw new IllegalStateException("Cannot create database directory " + directory.getAbsolutePath());
+        }
+        return directory;
+    }
+
+    private String createJdbcUrl(File databaseDirectory) {
+        File databaseFile = new File(databaseDirectory, "msdos-game-browser");
+        String path = databaseFile.getAbsolutePath().replace('\\', '/');
+        return "jdbc:h2:file:" + path + ";AUTO_SERVER=FALSE";
     }
 
     private byte[] downloadBytes(String url) throws IOException {

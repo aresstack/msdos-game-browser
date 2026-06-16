@@ -10,6 +10,7 @@ import de.bund.zrb.msdosgames.domain.GamePage;
 import de.bund.zrb.msdosgames.domain.GameSearchCriteria;
 import de.bund.zrb.msdosgames.domain.GameSummary;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -29,7 +30,7 @@ public final class LuceneH2GameBrowserBackendService implements GameBrowserBacke
 
     private final GameCatalog gameCatalog;
     private final GameDetailsProvider gameDetailsProvider;
-    private final H2InMemoryGameDetailsStore store;
+    private final H2GameDetailsStore store;
     private final LuceneGameDetailsIndex index;
     private final ExecutorService userExecutor;
     private final ThreadPoolExecutor detailExecutor;
@@ -40,7 +41,7 @@ public final class LuceneH2GameBrowserBackendService implements GameBrowserBacke
 
     private volatile Future<?> lowPriorityImageFuture;
 
-    public LuceneH2GameBrowserBackendService(GameCatalog gameCatalog, GameDetailsProvider gameDetailsProvider) {
+    public LuceneH2GameBrowserBackendService(GameCatalog gameCatalog, GameDetailsProvider gameDetailsProvider, File databaseDirectory) {
         if (gameCatalog == null) {
             throw new IllegalArgumentException("gameCatalog must not be null");
         }
@@ -49,7 +50,7 @@ public final class LuceneH2GameBrowserBackendService implements GameBrowserBacke
         }
         this.gameCatalog = gameCatalog;
         this.gameDetailsProvider = gameDetailsProvider;
-        this.store = new H2InMemoryGameDetailsStore();
+        this.store = new H2GameDetailsStore(databaseDirectory);
         this.index = new LuceneGameDetailsIndex();
         this.userExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("msdos-user-load"));
         this.detailExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(BACKGROUND_DETAIL_THREADS, new NamedThreadFactory("msdos-preload-details"));

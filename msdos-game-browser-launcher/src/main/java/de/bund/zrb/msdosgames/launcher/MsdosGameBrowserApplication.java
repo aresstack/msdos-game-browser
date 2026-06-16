@@ -34,7 +34,10 @@ public final class MsdosGameBrowserApplication {
         InternetArchiveCatalogClient archiveCatalogClient = new InternetArchiveCatalogClient(httpGateway);
         InternetArchiveDownloadClient downloadClient = new InternetArchiveDownloadClient();
         FileBasedLicenseAcceptanceStore licenseAcceptanceStore = new FileBasedLicenseAcceptanceStore(ApplicationDirectories.defaultLicenseStoreFile());
-        LuceneH2GameBrowserBackendService backendService = new LuceneH2GameBrowserBackendService(archiveCatalogClient, archiveCatalogClient);
+        LuceneH2GameBrowserBackendService backendService = new LuceneH2GameBrowserBackendService(
+                archiveCatalogClient,
+                archiveCatalogClient,
+                ApplicationDirectories.defaultDatabaseDirectory());
 
         return new GameBrowserFrame(
                 backendService,
