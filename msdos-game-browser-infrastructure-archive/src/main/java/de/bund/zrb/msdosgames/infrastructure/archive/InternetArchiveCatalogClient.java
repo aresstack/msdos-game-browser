@@ -6,6 +6,7 @@ import de.bund.zrb.msdosgames.application.port.GameDetailsProvider;
 import de.bund.zrb.msdosgames.domain.GameDetails;
 import de.bund.zrb.msdosgames.domain.GameFile;
 import de.bund.zrb.msdosgames.domain.GameIdentifier;
+import de.bund.zrb.msdosgames.domain.GameImage;
 import de.bund.zrb.msdosgames.domain.GamePage;
 import de.bund.zrb.msdosgames.domain.GameSearchCriteria;
 import de.bund.zrb.msdosgames.domain.GameSummary;
@@ -64,13 +65,15 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
         ArchiveMetadataResponse response = gson.fromJson(responseBody, ArchiveMetadataResponse.class);
         ArchiveMetadataResponse.ArchiveMetadata metadata = response == null ? null : response.metadata;
 
+        List<ArchiveMetadataResponse.ArchiveFile> archiveFiles = response == null ? Collections.<ArchiveMetadataResponse.ArchiveFile>emptyList() : response.files;
         String title = metadata == null ? identifier.getValue() : ArchiveJsonValues.text(metadata.title);
-        String descriptionHtml = metadata == null ? "" : htmlSanitizer.sanitize(ArchiveJsonValues.text(metadata.description));
+        String descriptionText = metadata == null ? "" : htmlSanitizer.toPlainText(ArchiveJsonValues.text(metadata.description));
         LicenseNotice licenseNotice = createLicenseNotice(identifier, metadata);
-        List<GameFile> files = mapFiles(response == null ? Collections.<ArchiveMetadataResponse.ArchiveFile>emptyList() : response.files);
+        List<GameFile> files = mapFiles(archiveFiles);
+        List<GameImage> images = mapImages(identifier, archiveFiles);
         long itemSize = response == null ? 0L : ArchiveJsonValues.number(response.item_size);
 
-        return new GameDetails(identifier, title, descriptionHtml, licenseNotice, files, itemSize);
+        return new GameDetails(identifier, title, descriptionText, licenseNotice, files, images, itemSize);
     }
 
     private GamePage loadSearchPage(String query, GameSearchCriteria criteria) throws IOException {
@@ -114,7 +117,7 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
 
         List<GameFile> gameFiles = new ArrayList<GameFile>();
         for (ArchiveMetadataResponse.ArchiveFile archiveFile : archiveFiles) {
-            if (fileFilter.accepts(archiveFile)) {
+            if (fileFilter.accepts(archiveFile) && !isPreviewImage(archiveFile)) {
                 gameFiles.add(new GameFile(
                         ArchiveJsonValues.text(archiveFile.name),
                         ArchiveJsonValues.text(archiveFile.format),
@@ -123,7 +126,35 @@ public final class InternetArchiveCatalogClient implements GameCatalog, GameDeta
                         ArchiveJsonValues.text(archiveFile.sha1)));
             }
         }
+        Collections.sort(gameFiles, new GameFileDownloadOrder());
         return gameFiles;
     }
 
+    private List<GameImage> mapImages(GameIdentifier identifier, List<ArchiveMetadataResponse.ArchiveFile> archiveFiles) {
+        if (archiveFiles == null || archiveFiles.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<GameImage> images = new ArrayList<GameImage>();
+        for (ArchiveMetadataResponse.ArchiveFile archiveFile : archiveFiles) {
+            if (isPreviewImage(archiveFile)) {
+                String fileName = ArchiveJsonValues.text(archiveFile.name);
+                images.add(new GameImage(fileName, urlBuilder.buildDownloadUrl(identifier, fileName)));
+            }
+        }
+        Collections.sort(images, new GameImagePreviewOrder());
+        return images;
+    }
+
+    private boolean isPreviewImage(ArchiveMetadataResponse.ArchiveFile archiveFile) {
+        String name = ArchiveJsonValues.text(archiveFile.name).toLowerCase();
+        String format = ArchiveJsonValues.text(archiveFile.format).toLowerCase();
+        return name.endsWith(".jpg")
+                || name.endsWith(".jpeg")
+                || name.endsWith(".png")
+                || name.endsWith(".gif")
+                || format.contains("jpeg")
+                || format.contains("png")
+                || format.contains("gif");
+    }
 }

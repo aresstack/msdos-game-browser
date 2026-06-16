@@ -8,17 +8,19 @@ public final class GameDetails {
 
     private final GameIdentifier identifier;
     private final String title;
-    private final String descriptionHtml;
+    private final String descriptionText;
     private final LicenseNotice licenseNotice;
     private final List<GameFile> downloadableFiles;
+    private final List<GameImage> previewImages;
     private final long itemSize;
 
     public GameDetails(
             GameIdentifier identifier,
             String title,
-            String descriptionHtml,
+            String descriptionText,
             LicenseNotice licenseNotice,
             List<GameFile> downloadableFiles,
+            List<GameImage> previewImages,
             long itemSize) {
         if (identifier == null) {
             throw new IllegalArgumentException("identifier must not be null");
@@ -29,11 +31,15 @@ public final class GameDetails {
         if (downloadableFiles == null) {
             throw new IllegalArgumentException("downloadableFiles must not be null");
         }
+        if (previewImages == null) {
+            throw new IllegalArgumentException("previewImages must not be null");
+        }
         this.identifier = identifier;
         this.title = textOrFallback(title, identifier.getValue());
-        this.descriptionHtml = textOrEmpty(descriptionHtml);
+        this.descriptionText = textOrFallback(descriptionText, "Keine Beschreibung vorhanden.");
         this.licenseNotice = licenseNotice;
         this.downloadableFiles = new ArrayList<GameFile>(downloadableFiles);
+        this.previewImages = new ArrayList<GameImage>(previewImages);
         this.itemSize = Math.max(0L, itemSize);
     }
 
@@ -45,8 +51,8 @@ public final class GameDetails {
         return title;
     }
 
-    public String getDescriptionHtml() {
-        return descriptionHtml;
+    public String getDescriptionText() {
+        return descriptionText;
     }
 
     public LicenseNotice getLicenseNotice() {
@@ -55,6 +61,10 @@ public final class GameDetails {
 
     public List<GameFile> getDownloadableFiles() {
         return Collections.unmodifiableList(downloadableFiles);
+    }
+
+    public List<GameImage> getPreviewImages() {
+        return Collections.unmodifiableList(previewImages);
     }
 
     public long getItemSize() {

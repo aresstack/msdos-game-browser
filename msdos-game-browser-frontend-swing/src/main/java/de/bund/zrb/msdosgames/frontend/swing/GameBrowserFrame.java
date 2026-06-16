@@ -12,11 +12,7 @@ import de.bund.zrb.msdosgames.domain.GamePage;
 import de.bund.zrb.msdosgames.domain.GameSummary;
 
 import javax.swing.BorderFactory;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -51,15 +47,10 @@ public final class GameBrowserFrame extends JFrame {
     private final JButton searchButton = new JButton("Suchen");
     private final JButton browseButton = new JButton("Alle anzeigen");
     private final JButton nextPageButton = new JButton("Weitere laden");
+    private final JButton openDownloadFolderButton = new JButton("Download-Ordner öffnen");
     private final GameTableModel gameTableModel = new GameTableModel();
     private final JTable gameTable = new JTable(gameTableModel);
-    private final JLabel titleLabel = new JLabel("Kein Spiel ausgewählt");
-    private final JEditorPane detailsPane = new JEditorPane();
-    private final JComboBox<GameFile> fileComboBox = new JComboBox<GameFile>();
-    private final JCheckBox licenseCheckBox = new JCheckBox("Ich habe die oben angezeigten Lizenz- und Rechtehinweise gelesen und akzeptiere sie.");
-    private final JButton downloadButton = new JButton("Herunterladen");
-    private final JButton openDownloadFolderButton = new JButton("Download-Ordner öffnen");
-    private final JLabel targetDirectoryLabel = new JLabel();
+    private final GameDetailsView gameDetailsView = new GameDetailsView();
     private final JProgressBar progressBar = new JProgressBar(0, 100);
     private final JLabel statusLabel = new JLabel("Bereit");
 
@@ -96,9 +87,9 @@ public final class GameBrowserFrame extends JFrame {
         add(createSearchPanel(), BorderLayout.NORTH);
         add(createContentPane(), BorderLayout.CENTER);
         add(createStatusPanel(), BorderLayout.SOUTH);
-        setSize(1200, 760);
+        gameDetailsView.clear(downloadDirectory);
+        setSize(1250, 800);
         setLocationRelativeTo(null);
-        clearDetails();
     }
 
     private JPanel createSearchPanel() {
@@ -115,34 +106,9 @@ public final class GameBrowserFrame extends JFrame {
 
     private JSplitPane createContentPane() {
         JScrollPane tableScrollPane = new JScrollPane(gameTable);
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScrollPane, createDetailsPanel());
-        splitPane.setResizeWeight(0.45d);
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScrollPane, gameDetailsView);
+        splitPane.setResizeWeight(0.40d);
         return splitPane;
-    }
-
-    private JPanel createDetailsPanel() {
-        JPanel panel = new JPanel(new BorderLayout(6, 6));
-        panel.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 6));
-
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
-        detailsPane.setEditable(false);
-        detailsPane.setContentType("text/html");
-        fileComboBox.setRenderer(new GameFileComboBoxRenderer());
-
-        JPanel confirmationPanel = new JPanel(new BorderLayout(6, 6));
-        targetDirectoryLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
-        confirmationPanel.add(targetDirectoryLabel, BorderLayout.NORTH);
-        confirmationPanel.add(licenseCheckBox, BorderLayout.CENTER);
-
-        JPanel downloadPanel = new JPanel(new BorderLayout(6, 6));
-        downloadPanel.add(fileComboBox, BorderLayout.NORTH);
-        downloadPanel.add(confirmationPanel, BorderLayout.CENTER);
-        downloadPanel.add(downloadButton, BorderLayout.SOUTH);
-
-        panel.add(titleLabel, BorderLayout.NORTH);
-        panel.add(new JScrollPane(detailsPane), BorderLayout.CENTER);
-        panel.add(downloadPanel, BorderLayout.SOUTH);
-        return panel;
     }
 
     private JPanel createStatusPanel() {
@@ -163,10 +129,11 @@ public final class GameBrowserFrame extends JFrame {
         searchButton.addActionListener(event -> searchFirstPage());
         browseButton.addActionListener(event -> loadFirstBrowsePage());
         nextPageButton.addActionListener(event -> loadNextPage());
-        licenseCheckBox.addActionListener(event -> acceptCurrentLicenseWhenSelected());
-        downloadButton.addActionListener(event -> downloadSelectedFile());
         openDownloadFolderButton.addActionListener(event -> openCurrentDownloadDirectory());
-        fileComboBox.addActionListener(event -> updateSelectedTargetPath());
+        gameDetailsView.bindActions(
+                () -> acceptCurrentLicenseWhenSelected(),
+                () -> downloadSelectedFile(),
+                () -> updateSelectedTargetPath());
         gameTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent event) {
@@ -284,62 +251,28 @@ public final class GameBrowserFrame extends JFrame {
 
     private void showDetails(GameDetails details) throws Exception {
         currentDetails = details;
-        titleLabel.setText(details.getTitle());
-        detailsPane.setText(createDetailsHtml(details));
-        detailsPane.setCaretPosition(0);
-        fileComboBox.setModel(new DefaultComboBoxModel<GameFile>(details.getDownloadableFiles().toArray(new GameFile[details.getDownloadableFiles().size()])));
-        licenseCheckBox.setEnabled(true);
-        licenseCheckBox.setSelected(acceptLicenseUseCase.isAccepted(details));
-        updateSelectedTargetPath();
-        updateDownloadButtonState();
+        gameDetailsView.showDetails(details, acceptLicenseUseCase.isAccepted(details), downloadDirectory);
     }
 
     private void clearDetails() {
         currentDetails = null;
-        titleLabel.setText("Kein Spiel ausgewählt");
-        detailsPane.setText("<html><body><p>Wähle links ein Spiel aus. Danach erscheinen hier Beschreibung, Rechtehinweise, Quelle und Download-Ziel.</p></body></html>");
-        fileComboBox.setModel(new DefaultComboBoxModel<GameFile>());
-        licenseCheckBox.setSelected(false);
-        licenseCheckBox.setEnabled(false);
-        targetDirectoryLabel.setText("Download-Ziel: " + downloadDirectory.getAbsolutePath());
-        updateDownloadButtonState();
-    }
-
-    private String createDetailsHtml(GameDetails details) {
-        StringBuilder html = new StringBuilder();
-        html.append("<html><body>");
-        html.append("<h3>Beschreibung</h3>");
-        html.append(details.getDescriptionHtml());
-        html.append("<hr>");
-        html.append("<h3>Lizenz- und Rechtehinweise</h3>");
-        if (details.getLicenseNotice().hasLicenseInformation()) {
-            html.append("<p><b>Lizenz:</b> ").append(escape(details.getLicenseNotice().getLicenseUrl())).append("</p>");
-            html.append("<p><b>Rechte:</b> ").append(escape(details.getLicenseNotice().getRights())).append("</p>");
-        } else {
-            html.append("<p><b>Lizenz:</b> Archive.org liefert für dieses Item keine ausdrückliche Lizenzangabe im Metadatenfeld.</p>");
-            html.append("<p><b>Rechte:</b> Bitte prüfe die verlinkte Detailseite selbst. Der Download bedeutet nicht automatisch, dass jede Nutzung erlaubt ist.</p>");
-        }
-        html.append("<p><b>Quelle:</b> ").append(escape(details.getLicenseNotice().getSourceUrl())).append("</p>");
-        html.append("<p><b>Download-Ziel:</b> ").append(escape(createDownloadDirectoryText(details))).append("</p>");
-        html.append("<p>Der Download wird erst nach deiner Bestätigung der hier angezeigten Hinweise freigeschaltet.</p>");
-        html.append("</body></html>");
-        return html.toString();
+        gameDetailsView.clear(downloadDirectory);
     }
 
     private void acceptCurrentLicenseWhenSelected() {
-        if (currentDetails == null || !licenseCheckBox.isSelected()) {
-            updateDownloadButtonState();
+        if (currentDetails == null || !gameDetailsView.isNoticeAccepted()) {
+            gameDetailsView.updateSelectedTargetPath();
             return;
         }
 
         try {
             acceptLicenseUseCase.accept(currentDetails);
+            gameDetailsView.setNoticeAccepted(true);
             statusLabel.setText("Rechtehinweis akzeptiert für " + currentDetails.getTitle());
         } catch (Exception exception) {
-            licenseCheckBox.setSelected(false);
+            gameDetailsView.setNoticeAccepted(false);
             showError("Die Bestätigung konnte nicht gespeichert werden.", exception);
         }
-        updateDownloadButtonState();
     }
 
     private void downloadSelectedFile() {
@@ -347,12 +280,12 @@ public final class GameBrowserFrame extends JFrame {
             return;
         }
 
-        final GameFile selectedFile = (GameFile) fileComboBox.getSelectedItem();
+        final GameFile selectedFile = gameDetailsView.getSelectedFile();
         if (selectedFile == null) {
             return;
         }
 
-        final File targetFile = createTargetFile(currentDetails, selectedFile);
+        final File targetFile = gameDetailsView.getSelectedTargetFile();
         setBusy("Lade " + selectedFile.getName() + " nach " + targetFile.getParentFile().getAbsolutePath() + " ...");
         new SwingWorker<Void, DownloadProgress>() {
             @Override
@@ -388,7 +321,7 @@ public final class GameBrowserFrame extends JFrame {
     }
 
     private void openCurrentDownloadDirectory() {
-        File directory = resolveCurrentDownloadDirectory();
+        File directory = gameDetailsView.getCurrentDirectory();
         try {
             downloadDirectoryOpener.openDirectory(directory);
             statusLabel.setText("Download-Ordner geöffnet: " + directory.getAbsolutePath());
@@ -397,42 +330,8 @@ public final class GameBrowserFrame extends JFrame {
         }
     }
 
-    private File resolveCurrentDownloadDirectory() {
-        if (currentDetails == null) {
-            return downloadDirectory;
-        }
-        return new File(createDownloadDirectoryText(currentDetails));
-    }
-
     private void updateSelectedTargetPath() {
-        if (currentDetails == null) {
-            targetDirectoryLabel.setText("Download-Ziel: " + downloadDirectory.getAbsolutePath());
-            return;
-        }
-
-        GameFile selectedFile = (GameFile) fileComboBox.getSelectedItem();
-        if (selectedFile == null) {
-            targetDirectoryLabel.setText("Download-Ziel: " + createDownloadDirectoryText(currentDetails));
-            return;
-        }
-
-        targetDirectoryLabel.setText("Download-Ziel: " + createTargetFile(currentDetails, selectedFile).getAbsolutePath());
-    }
-
-    private File createTargetFile(GameDetails details, GameFile selectedFile) {
-        return new File(createDownloadDirectoryText(details), sanitizeRelativePath(selectedFile.getName()));
-    }
-
-    private String createDownloadDirectoryText(GameDetails details) {
-        return new File(downloadDirectory, sanitizeDirectoryName(details.getIdentifier().getValue())).getAbsolutePath();
-    }
-
-    private String sanitizeDirectoryName(String value) {
-        return value.replaceAll("[^a-zA-Z0-9._-]", "_");
-    }
-
-    private String sanitizeRelativePath(String value) {
-        return value.replace('\\', '/').replace("..", "_");
+        gameDetailsView.updateSelectedTargetPath();
     }
 
     private void showProgress(DownloadProgress progress) {
@@ -445,30 +344,13 @@ public final class GameBrowserFrame extends JFrame {
         progressBar.setIndeterminate(true);
         searchButton.setEnabled(false);
         browseButton.setEnabled(false);
-        downloadButton.setEnabled(false);
     }
 
     private void setReady() {
         progressBar.setIndeterminate(false);
         searchButton.setEnabled(true);
         browseButton.setEnabled(true);
-        updateDownloadButtonState();
-    }
-
-    private void updateDownloadButtonState() {
-        boolean hasFile = fileComboBox.getSelectedItem() != null;
-        boolean hasAcceptedNotice = licenseCheckBox.isSelected();
-        downloadButton.setEnabled(currentDetails != null && hasFile && hasAcceptedNotice);
-    }
-
-    private String escape(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;");
+        gameDetailsView.updateSelectedTargetPath();
     }
 
     private void showError(String message, Exception exception) {
