@@ -37,10 +37,6 @@ final class GameDetailsView extends JPanel {
         add(new JScrollPane(splitPane), BorderLayout.CENTER);
     }
 
-    void bindActions(Runnable selectionChangedAction) {
-        downloadControlsPanel.bindActions(selectionChangedAction);
-    }
-
     void clear(File downloadDirectory) {
         metadataPanel.clear();
         imagePreviewPanel.clear();
@@ -59,6 +55,14 @@ final class GameDetailsView extends JPanel {
 
     GameFile getSelectedFile() {
         return downloadControlsPanel.getSelectedFile();
+    }
+
+    java.util.List<GameFile> getDownloadableFiles() {
+        return downloadControlsPanel.getDownloadableFiles();
+    }
+
+    void selectDownloadFile(GameFile file) {
+        downloadControlsPanel.selectFile(file);
     }
 
     File getCurrentDirectory() {

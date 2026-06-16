@@ -22,6 +22,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -36,6 +37,8 @@ import javax.swing.event.ListSelectionListener;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Rectangle;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -58,8 +61,9 @@ public final class GameBrowserFrame extends JFrame {
     private final JButton searchButton = new JButton("Suchen");
     private final JButton browseButton = new JButton("Alle anzeigen");
     private final JButton nextPageButton = new JButton("Weitere laden");
-    private final JButton downloadButton = new JButton("Download");
     private final JButton favoriteButton = new JButton("☆ Zu Favoriten");
+    private final JButton downloadButton = new JButton("Download");
+    private final JButton downloadOptionsButton = new JButton("▾");
     private final JButton openDownloadFolderButton = new JButton("Download-Ordner öffnen");
     private final GameTableModel gameTableModel = new GameTableModel();
     private final GameTableModel favoriteTableModel = new GameTableModel();
@@ -156,7 +160,9 @@ public final class GameBrowserFrame extends JFrame {
         searchPanel.add(searchButton);
         searchPanel.add(browseButton);
         searchPanel.add(nextPageButton);
+        actionPanel.add(favoriteButton);
         actionPanel.add(downloadButton);
+        actionPanel.add(downloadOptionsButton);
         nextPageButton.setEnabled(false);
         panel.add(searchPanel, BorderLayout.WEST);
         panel.add(actionPanel, BorderLayout.EAST);
@@ -183,7 +189,6 @@ public final class GameBrowserFrame extends JFrame {
         progressBar.setStringPainted(true);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        buttonPanel.add(favoriteButton);
         buttonPanel.add(openDownloadFolderButton);
 
         JPanel actionPanel = new JPanel(new BorderLayout(6, 0));
@@ -201,9 +206,10 @@ public final class GameBrowserFrame extends JFrame {
         browseButton.addActionListener(event -> loadFirstBrowsePage());
         nextPageButton.addActionListener(event -> loadNextPage());
         downloadButton.addActionListener(event -> downloadSelectedFile());
+        downloadOptionsButton.addActionListener(event -> showDownloadOptionsMenu());
         favoriteButton.addActionListener(event -> toggleCurrentFavorite());
         openDownloadFolderButton.addActionListener(event -> openCurrentDownloadDirectory());
-        gameDetailsView.bindActions(() -> updateSelectedTargetPath());
+        installFavoriteContextMenu();
         gameTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent event) {
@@ -220,6 +226,81 @@ public final class GameBrowserFrame extends JFrame {
                 }
             }
         });
+    }
+
+    private void showDownloadOptionsMenu() {
+        List<GameFile> files = gameDetailsView.getDownloadableFiles();
+        if (files.isEmpty()) {
+            return;
+        }
+
+        JPopupMenu menu = new JPopupMenu();
+        GameFile selectedFile = gameDetailsView.getSelectedFile();
+        for (final GameFile file : files) {
+            String title = file == selectedFile ? "✓ " + file.toString() : file.toString();
+            JMenuItem item = new JMenuItem(title);
+            item.addActionListener(event -> selectDownloadFile(file));
+            menu.add(item);
+        }
+        menu.show(downloadOptionsButton, 0, downloadOptionsButton.getHeight());
+    }
+
+    private void selectDownloadFile(GameFile file) {
+        gameDetailsView.selectDownloadFile(file);
+        updateSelectedTargetPath();
+        if (file != null) {
+            statusLabel.setText("Download-Datei ausgewählt: " + file.getName());
+        }
+    }
+
+    private void installFavoriteContextMenu() {
+        favoriteTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent event) {
+                maybeShowFavoriteContextMenu(event);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                maybeShowFavoriteContextMenu(event);
+            }
+        });
+    }
+
+    private void maybeShowFavoriteContextMenu(MouseEvent event) {
+        if (!event.isPopupTrigger()) {
+            return;
+        }
+
+        int row = favoriteTable.rowAtPoint(event.getPoint());
+        if (row < 0) {
+            return;
+        }
+        favoriteTable.setRowSelectionInterval(row, row);
+
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem removeItem = new JMenuItem("Favorit entfernen");
+        removeItem.addActionListener(actionEvent -> removeSelectedFavorite());
+        menu.add(removeItem);
+        menu.show(favoriteTable, event.getX(), event.getY());
+    }
+
+    private void removeSelectedFavorite() {
+        int selectedRow = favoriteTable.getSelectedRow();
+        if (selectedRow < 0) {
+            return;
+        }
+
+        int modelRow = favoriteTable.convertRowIndexToModel(selectedRow);
+        GameSummary favoriteSummary = favoriteTableModel.getGameAt(modelRow);
+        try {
+            favoriteGamesUseCase.removeFavorite(favoriteSummary.getIdentifier());
+            statusLabel.setText("Favorit entfernt: " + favoriteSummary.getTitle());
+            loadFavorites();
+            updateFavoriteButtonState();
+        } catch (Exception exception) {
+            showError("Favorit konnte nicht entfernt werden.", exception);
+        }
     }
 
     private void loadFirstBrowsePage() {
@@ -605,6 +686,7 @@ public final class GameBrowserFrame extends JFrame {
         browseButton.setEnabled(false);
         favoriteButton.setEnabled(false);
         downloadButton.setEnabled(false);
+        downloadOptionsButton.setEnabled(false);
     }
 
     private void setReady() {
@@ -617,7 +699,9 @@ public final class GameBrowserFrame extends JFrame {
     }
 
     private void updateDownloadButtonState() {
-        downloadButton.setEnabled(currentDetails != null && gameDetailsView.getSelectedFile() != null);
+        boolean hasDownload = currentDetails != null && gameDetailsView.getSelectedFile() != null;
+        downloadButton.setEnabled(hasDownload);
+        downloadOptionsButton.setEnabled(hasDownload && gameDetailsView.getDownloadableFiles().size() > 1);
     }
 
     private void showError(String message, Exception exception) {

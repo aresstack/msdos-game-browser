@@ -4,55 +4,64 @@ import de.bund.zrb.msdosgames.domain.GameDetails;
 import de.bund.zrb.msdosgames.domain.GameFile;
 
 import javax.swing.BorderFactory;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 final class DownloadControlsPanel extends JPanel {
 
-    private final JComboBox<GameFile> fileComboBox = new JComboBox<GameFile>();
+    private final JLabel selectedFileLabel = new JLabel("Datei: -");
     private final JLabel targetFileLabel = new JLabel("Ziel: -");
 
+    private final List<GameFile> downloadableFiles = new ArrayList<GameFile>();
     private File baseDirectory;
     private GameDetails currentDetails;
+    private GameFile selectedFile;
 
     DownloadControlsPanel() {
         super(new BorderLayout(6, 6));
-        setBorder(BorderFactory.createTitledBorder("Download"));
-        fileComboBox.setRenderer(new GameFileComboBoxRenderer());
-
-        add(fileComboBox, BorderLayout.NORTH);
+        setBorder(BorderFactory.createTitledBorder("Download-Datei"));
+        add(selectedFileLabel, BorderLayout.NORTH);
         add(targetFileLabel, BorderLayout.CENTER);
-    }
-
-    void bindActions(Runnable selectionChangedAction) {
-        fileComboBox.addActionListener(event -> selectionChangedAction.run());
     }
 
     void clear(File baseDirectory) {
         this.baseDirectory = baseDirectory;
         currentDetails = null;
-        fileComboBox.setModel(new DefaultComboBoxModel<GameFile>());
+        selectedFile = null;
+        downloadableFiles.clear();
+        selectedFileLabel.setText("Datei: -");
         targetFileLabel.setText("Ziel: " + baseDirectory.getAbsolutePath());
-        updateDownloadButtonState();
     }
 
     void showDetails(GameDetails details, File baseDirectory) {
         this.baseDirectory = baseDirectory;
         currentDetails = details;
-        fileComboBox.setModel(new DefaultComboBoxModel<GameFile>(details.getDownloadableFiles().toArray(new GameFile[details.getDownloadableFiles().size()])));
-        if (fileComboBox.getItemCount() > 0) {
-            fileComboBox.setSelectedIndex(0);
-        }
-        updateTargetFileLabel();
-        updateDownloadButtonState();
+        downloadableFiles.clear();
+        downloadableFiles.addAll(details.getDownloadableFiles());
+        selectedFile = downloadableFiles.isEmpty() ? null : downloadableFiles.get(0);
+        updateLabels();
+    }
+
+    List<GameFile> getDownloadableFiles() {
+        return Collections.unmodifiableList(downloadableFiles);
     }
 
     GameFile getSelectedFile() {
-        return (GameFile) fileComboBox.getSelectedItem();
+        return selectedFile;
+    }
+
+    void selectFile(GameFile file) {
+        if (file == null) {
+            selectedFile = null;
+        } else if (downloadableFiles.contains(file)) {
+            selectedFile = file;
+        }
+        updateLabels();
     }
 
     File getCurrentDirectory() {
@@ -63,7 +72,6 @@ final class DownloadControlsPanel extends JPanel {
     }
 
     File getSelectedTargetFile() {
-        GameFile selectedFile = getSelectedFile();
         if (selectedFile == null) {
             return getCurrentDirectory();
         }
@@ -71,11 +79,16 @@ final class DownloadControlsPanel extends JPanel {
     }
 
     void updateTargetFileLabel() {
-        targetFileLabel.setText("Ziel: " + getSelectedTargetFile().getAbsolutePath());
+        updateLabels();
     }
 
-    void updateDownloadButtonState() {
-
+    private void updateLabels() {
+        if (selectedFile == null) {
+            selectedFileLabel.setText("Datei: -");
+        } else {
+            selectedFileLabel.setText("Datei: " + selectedFile.getName());
+        }
+        targetFileLabel.setText("Ziel: " + getSelectedTargetFile().getAbsolutePath());
     }
 
     private String sanitizeDirectoryName(String value) {
