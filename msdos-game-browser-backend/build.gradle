@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'signing'
 }
 
 dependencies {
@@ -10,10 +11,34 @@ dependencies {
     implementation project(':msdos-game-browser-infrastructure-archive')
     implementation project(':msdos-game-browser-infrastructure-local')
 
-    implementation 'org.apache.lucene:lucene-core:8.11.4'
-    implementation 'org.apache.lucene:lucene-analyzers-common:8.11.4'
-    implementation 'com.h2database:h2:1.4.200'
-    implementation 'com.google.code.gson:gson:2.10.1'
+    api 'org.apache.lucene:lucene-core:8.11.4'
+    api 'org.apache.lucene:lucene-analyzers-common:8.11.4'
+    api 'com.h2database:h2:1.4.200'
+    api 'com.google.code.gson:gson:2.10.1'
+    api 'org.jsoup:jsoup:1.17.2'
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+jar {
+    from project(':msdos-game-browser-domain').sourceSets.main.output
+    from project(':msdos-game-browser-application').sourceSets.main.output
+    from project(':msdos-game-browser-infrastructure-archive').sourceSets.main.output
+    from project(':msdos-game-browser-infrastructure-local').sourceSets.main.output
+}
+
+sourcesJar {
+    from project(':msdos-game-browser-domain').sourceSets.main.allSource
+    from project(':msdos-game-browser-application').sourceSets.main.allSource
+    from project(':msdos-game-browser-infrastructure-archive').sourceSets.main.allSource
+    from project(':msdos-game-browser-infrastructure-local').sourceSets.main.allSource
+}
+
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
 }
 
 publishing {
@@ -24,7 +49,43 @@ publishing {
             pom {
                 name = 'MS-DOS Game Browser Backend'
                 description = 'Backend API for browsing Archive.org MS-DOS games with optional Lucene/H2 caching and preloading.'
+                url = 'https://github.com/aresstack/msdos-game-browser'
+                licenses {
+                    license {
+                        name = 'Apache License, Version 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'aresstack'
+                        name = 'Ares Stack'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/aresstack/msdos-game-browser.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:aresstack/msdos-game-browser.git'
+                    url = 'https://github.com/aresstack/msdos-game-browser'
+                }
+                withXml {
+                    def dependenciesNode = asNode().get('dependencies')
+                    if (dependenciesNode && dependenciesNode[0]) {
+                        dependenciesNode[0].children().removeAll { dependency ->
+                            dependency.artifactId.text().startsWith('msdos-game-browser-')
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+signing {
+    def signingKey = findProperty('signingInMemoryKey')
+    def signingPassword = findProperty('signingInMemoryKeyPassword')
+    required { gradle.taskGraph.allTasks.any { it.name == 'publishAllPublicationsToCentralPortal' || it.name.toLowerCase().contains('centralportal') } }
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    sign publishing.publications.mavenJava
 }

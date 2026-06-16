@@ -1,6 +1,7 @@
 plugins {
     id 'application'
     id 'maven-publish'
+    id 'signing'
 }
 
 dependencies {
@@ -12,6 +13,23 @@ application {
     mainClass = 'com.aresstack.msdosgames.ui.MsdosGameBrowserApplication'
 }
 
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+jar {
+    from project(':msdos-game-browser-frontend-swing').sourceSets.main.output
+}
+
+sourcesJar {
+    from project(':msdos-game-browser-frontend-swing').sourceSets.main.allSource
+}
+
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -20,7 +38,43 @@ publishing {
             pom {
                 name = 'MS-DOS Game Browser UI'
                 description = 'Swing UI for the MS-DOS Game Browser backend.'
+                url = 'https://github.com/aresstack/msdos-game-browser'
+                licenses {
+                    license {
+                        name = 'Apache License, Version 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'aresstack'
+                        name = 'Ares Stack'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/aresstack/msdos-game-browser.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:aresstack/msdos-game-browser.git'
+                    url = 'https://github.com/aresstack/msdos-game-browser'
+                }
+                withXml {
+                    def dependenciesNode = asNode().get('dependencies')
+                    if (dependenciesNode && dependenciesNode[0]) {
+                        dependenciesNode[0].children().removeAll { dependency ->
+                            dependency.artifactId.text() == 'msdos-game-browser-frontend-swing'
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+signing {
+    def signingKey = findProperty('signingInMemoryKey')
+    def signingPassword = findProperty('signingInMemoryKeyPassword')
+    required { gradle.taskGraph.allTasks.any { it.name == 'publishAllPublicationsToCentralPortal' || it.name.toLowerCase().contains('centralportal') } }
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    sign publishing.publications.mavenJava
 }
