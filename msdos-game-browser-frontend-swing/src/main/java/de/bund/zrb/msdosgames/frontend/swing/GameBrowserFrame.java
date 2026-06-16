@@ -38,7 +38,7 @@ import java.util.List;
 
 public final class GameBrowserFrame extends JFrame {
 
-    private static final int PAGE_SIZE = 50;
+    private static final int PAGE_SIZE = 100;
 
     private final BrowseGamesUseCase browseGamesUseCase;
     private final SearchGamesUseCase searchGamesUseCase;

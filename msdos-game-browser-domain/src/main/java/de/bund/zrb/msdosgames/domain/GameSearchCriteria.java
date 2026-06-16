@@ -2,7 +2,7 @@ package de.bund.zrb.msdosgames.domain;
 
 public final class GameSearchCriteria {
 
-    public static final int DEFAULT_PAGE_SIZE = 50;
+    public static final int DEFAULT_PAGE_SIZE = 100;
 
     private final String query;
     private final String cursor;
@@ -70,9 +70,9 @@ public final class GameSearchCriteria {
     }
 
     private static int normalizePageSize(int pageSize) {
-        if (pageSize < 1) {
+        if (pageSize < DEFAULT_PAGE_SIZE) {
             return DEFAULT_PAGE_SIZE;
         }
-        return Math.min(100, pageSize);
+        return Math.min(1000, pageSize);
     }
 }
